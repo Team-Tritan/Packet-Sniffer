@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 	"net"
+	"sync"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -19,14 +20,17 @@ const (
 	snapshotLen              = 1024
 	promiscuous              = true
 	timeout                  = 30 * time.Second
-	basePath                 = "./dumps"
+	basePath                 = "./dumps/"
 	discordWebhookURL        = "https://discord.com/api/webhooks/1155004446112239706/qhujL9opqnqicZVBmFfgg8QCwyBBZ30FPkiFBzau05SuvBV1mV_MGhWdnd1qnqLykNTW"
 	repeatedConnectionThreshold = 5
 	outgoingSSHSubnet         = "23.142.248.0/24"
+	maxLogInterval            = time.Minute
 )
 
 var sourceIPCounts = make(map[string]int)
 var destinationIPCounts = make(map[string]int)
+var connectionLogs = make(map[string]time.Time)
+var connectionLogsMutex sync.Mutex
 
 func sendToDiscord(message string) {
 	client := resty.New()
@@ -97,8 +101,16 @@ func processPacket(packet gopacket.Packet, deviceName string) {
 			}
 
 			if direction == "outgoing" && isIPInRange(srcIP, outgoingSSHSubnet) {
-				sshAlert := fmt.Sprintf("SSH %s connection detected from %s to %s on interface %s", direction, srcIP, dstIP, deviceName)
-				sendToDiscord(sshAlert)
+				connectionKey := fmt.Sprintf("%s:%s:%s:%s", srcIP, dstIP, srcPort.String(), dstPort.String())
+
+				connectionLogsMutex.Lock()
+				lastLogTime, exists := connectionLogs[connectionKey]
+				if !exists || time.Since(lastLogTime) > maxLogInterval {
+					sshAlert := fmt.Sprintf("SSH %s connection detected from %s to %s on interface %s", direction, srcIP, dstIP, deviceName)
+					sendToDiscord(sshAlert)
+					connectionLogs[connectionKey] = time.Now()
+				}
+				connectionLogsMutex.Unlock()
 			}
 		}
 	}
