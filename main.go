@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/google/gopacket"
@@ -16,7 +17,7 @@ const (
 	snapshotLen = 1024
 	promiscuous = false
 	timeout     = 30 * time.Second
-	basePath    = "./dumps" 
+	basePath    = "./dumps/"
 )
 
 func main() {
@@ -37,7 +38,7 @@ func main() {
 	destinationIPCounts := make(map[string]int)
 
 	for _, device := range devices {
-		fmt.Printf("Monitoring repeated connections on interfagit ce %s...\n", device.Name)
+		fmt.Printf("Monitoring repeated connections on interface %s...\n", device.Name)
 		handle, err := pcap.OpenLive(device.Name, snapshotLen, promiscuous, timeout)
 		if err != nil {
 			log.Printf("Error opening interface %s: %v", device.Name, err)
@@ -65,7 +66,9 @@ func main() {
 				currentDate = date
 				fileName := fmt.Sprintf("%s%s.pcap", basePath, date)
 
-				currentFile, err = os.Create(fileName)
+				filePath := filepath.Join(basePath, fileName)
+
+				currentFile, err = os.Create(filePath)
 				if err != nil {
 					log.Fatal(err)
 				}
