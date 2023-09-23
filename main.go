@@ -112,18 +112,22 @@ func processPacket(packet gopacket.Packet, deviceName string) {
 				}
 				connectionLogsMutex.Unlock()
 			}
+
+			if sourceIPCounts[srcIP] > repeatedConnectionThreshold || destinationIPCounts[dstIP] > repeatedConnectionThreshold {
+				err := pcapWriter.WritePacket(gopacket.CaptureInfo{
+					Timestamp:      packet.Metadata().Timestamp,
+					CaptureLength:  packet.Metadata().CaptureLength,
+					Length:         packet.Metadata().Length,
+				}, packet.Data())
+				if err != nil {
+					log.Printf("Error writing packet to PCAP file: %v", err)
+				}
+			}
 		}
 	}
 
 	sourceIPCounts[srcIP]++
 	destinationIPCounts[dstIP]++
-
-	if sourceIPCounts[srcIP] > repeatedConnectionThreshold {
-		fmt.Printf("Repeated connections from %s on interface %s: %d\n", srcIP, deviceName, sourceIPCounts[srcIP])
-	}
-	if destinationIPCounts[dstIP] > repeatedConnectionThreshold {
-		fmt.Printf("Repeated connections to %s on interface %s: %d\n", dstIP, deviceName, destinationIPCounts[dstIP])
-	}
 }
 
 func isIPInRange(ipStr string, subnetStr string) bool {
