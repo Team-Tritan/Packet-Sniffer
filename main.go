@@ -31,6 +31,8 @@ var sourceIPCounts = make(map[string]int)
 var destinationIPCounts = make(map[string]int)
 var connectionLogs = make(map[string]time.Time)
 var connectionLogsMutex sync.Mutex
+var sourceIPCountsMutex sync.Mutex 
+var destinationIPCountsMutex sync.Mutex 
 
 func sendToDiscord(message string) {
 	client := resty.New()
@@ -113,20 +115,15 @@ func processPacket(packet gopacket.Packet, deviceName string) {
 			}
 		}
 
-		if sourceIPCounts[srcIP] > repeatedConnectionThreshold || destinationIPCounts[dstIP] > repeatedConnectionThreshold {
-			err := pcapWriter.WritePacket(gopacket.CaptureInfo{
-				Timestamp:     packet.Metadata().Timestamp,
-				CaptureLength: packet.Metadata().CaptureLength,
-				Length:        packet.Metadata().Length,
-			}, packet.Data())
-			if err != nil {
-				log.Printf("Error writing packet to PCAP file: %v", err)
-			}
-		}
-	}
+		sourceIPCountsMutex.Lock()
+		destinationIPCountsMutex.Lock()
 
-	sourceIPCounts[srcIP]++
-	destinationIPCounts[dstIP]++
+		sourceIPCounts[srcIP]++
+		destinationIPCounts[dstIP]++
+
+		sourceIPCountsMutex.Unlock()
+		destinationIPCountsMutex.Unlock()
+	}
 }
 
 func isIPInRange(ipStr string, subnetStr string) bool {
@@ -143,6 +140,10 @@ func printConnectionsOverThreshold() {
 	for {
 		time.Sleep(time.Minute)
 		fmt.Println("Connections over the threshold:")
+
+		sourceIPCountsMutex.Lock()
+		destinationIPCountsMutex.Lock()
+
 		for ip, count := range sourceIPCounts {
 			if count > repeatedConnectionThreshold {
 				fmt.Printf("%s -> Outgoing Connections: %d\n", ip, count)
@@ -153,6 +154,9 @@ func printConnectionsOverThreshold() {
 				fmt.Printf("%s -> Incoming Connections: %d\n", ip, count)
 			}
 		}
+
+		sourceIPCountsMutex.Unlock()
+		destinationIPCountsMutex.Unlock()
 	}
 }
 
