@@ -94,8 +94,10 @@ func processPacket(packet gopacket.Packet, deviceName string) {
 				direction = "outgoing"
 			}
 
+			if direction == "outgoing" {
 			sshAlert := fmt.Sprintf("SSH %s connection detected from %s to %s on interface %s", direction, srcIP, dstIP, deviceName)
 			sendToDiscord(sshAlert)
+			}
 		}
 	}
 
