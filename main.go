@@ -32,11 +32,14 @@ var destinationIPCounts = make(map[string]int)
 var connectionLogs = make(map[string]time.Time)
 var connectionLogsMutex sync.Mutex
 
-func sendToDiscord(message string) {
+func sendToDiscord(packetData []byte, message string) {
 	client := resty.New()
+	body := map[string]interface{}{
+		"content": fmt.Sprintf("```\n%s\n```%s", string(packetData), message),
+	}
 	_, err := client.R().
 		SetHeader("Content-Type", "application/json").
-		SetBody(map[string]string{"content": message}).
+		SetBody(body).
 		Post(discordWebhookURL)
 	if err != nil {
 		log.Printf("Error sending message to Discord: %v", err)
@@ -107,7 +110,7 @@ func processPacket(packet gopacket.Packet, deviceName string) {
 				lastLogTime, exists := connectionLogs[connectionKey]
 				if !exists || time.Since(lastLogTime) > maxLogInterval {
 					sshAlert := fmt.Sprintf("SSH %s connection detected from %s to %s on interface %s", direction, srcIP, dstIP, deviceName)
-					sendToDiscord(sshAlert)
+					sendToDiscord(packet.Data(), sshAlert) // Include packet data in the message
 					connectionLogs[connectionKey] = time.Now()
 				}
 				connectionLogsMutex.Unlock()
