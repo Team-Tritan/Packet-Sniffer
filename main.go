@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"net"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -21,6 +22,7 @@ const (
 	basePath                 = "./dumps"
 	discordWebhookURL        = "https://discord.com/api/webhooks/1155004446112239706/qhujL9opqnqicZVBmFfgg8QCwyBBZ30FPkiFBzau05SuvBV1mV_MGhWdnd1qnqLykNTW"
 	repeatedConnectionThreshold = 5
+	outgoingSSHSubnet         = "23.142.248.0/24"
 )
 
 var sourceIPCounts = make(map[string]int)
@@ -94,9 +96,9 @@ func processPacket(packet gopacket.Packet, deviceName string) {
 				direction = "outgoing"
 			}
 
-			if direction == "outgoing" {
-			sshAlert := fmt.Sprintf("SSH %s connection detected from %s to %s on interface %s", direction, srcIP, dstIP, deviceName)
-			sendToDiscord(sshAlert)
+			if direction == "outgoing" && isIPInRange(srcIP, outgoingSSHSubnet) {
+				sshAlert := fmt.Sprintf("SSH %s connection detected from %s to %s on interface %s", direction, srcIP, dstIP, deviceName)
+				sendToDiscord(sshAlert)
 			}
 		}
 	}
@@ -110,6 +112,16 @@ func processPacket(packet gopacket.Packet, deviceName string) {
 	if destinationIPCounts[dstIP] > repeatedConnectionThreshold {
 		fmt.Printf("Repeated connections to %s on interface %s: %d\n", dstIP, deviceName, destinationIPCounts[dstIP])
 	}
+}
+
+func isIPInRange(ipStr string, subnetStr string) bool {
+	ip := net.ParseIP(ipStr)
+	_, subnet, err := net.ParseCIDR(subnetStr)
+	if err != nil {
+		log.Printf("Error parsing CIDR: %v", err)
+		return false
+	}
+	return subnet.Contains(ip)
 }
 
 var currentDate string
