@@ -17,7 +17,7 @@ const (
 	snapshotLen = 1024
 	promiscuous = false
 	timeout     = 30 * time.Second
-	basePath    = "./dumps/"
+	basePath    = "./dumps"
 )
 
 func main() {
