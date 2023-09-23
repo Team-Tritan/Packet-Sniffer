@@ -60,7 +60,6 @@ func main() {
 
 			if currentDate != date {
 				if pcapWriter != nil {
-					pcapWriter.Flush()
 					currentFile.Close()
 				}
 				currentDate = date
